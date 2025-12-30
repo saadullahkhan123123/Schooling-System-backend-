@@ -15,6 +15,7 @@ const app = express();
 /* ✅ Correct CORS Configuration */
 /* ✅ Complete CORS Configuration */
 const allowedOrigins = [
+  // Development origins
   'http://localhost:5173',      // Vite default
   'http://127.0.0.1:5173',      // Vite alternative
   'http://localhost:3000',      // Backend itself
@@ -24,7 +25,10 @@ const allowedOrigins = [
   'http://localhost:5174',      // Vite alternate port
   'http://127.0.0.1:5174',      // Vite alternate
   'http://localhost:4173',      // Vite preview
-  'http://127.0.0.1:4173'       // Vite preview alternative
+  'http://127.0.0.1:4173',      // Vite preview alternative
+  // Production origins
+  'https://schooling-rosy.vercel.app',
+  'https://schooling-system-backend.vercel.app'
 ];
 
 app.use(cors({
@@ -35,14 +39,22 @@ app.use(cors({
     // Log all incoming origins for debugging
     console.log('🌐 Incoming request from origin:', origin);
     
+    // Check if origin is in allowed list
     if (allowedOrigins.includes(origin)) {
       console.log('✅ Allowed by CORS:', origin);
       return callback(null, true);
-    } else {
-      console.log('❌ Blocked by CORS:', origin);
-      console.log('📋 Allowed origins:', allowedOrigins);
-      return callback(new Error('Not allowed by CORS'));
     }
+    
+    // Allow all Vercel subdomains (for production)
+    if (origin && (origin.includes('vercel.app') || origin.includes('vercel.com'))) {
+      console.log('✅ Allowed Vercel origin:', origin);
+      return callback(null, true);
+    }
+    
+    // Block if not allowed
+    console.log('❌ Blocked by CORS:', origin);
+    console.log('📋 Allowed origins:', allowedOrigins);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
