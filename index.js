@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const connectDB = require('./config/db');
+const { connectDB, isConnected } = require('./config/db');
 const { PORT } = require('./config/env');
 const authRoutes = require('./routes/authRoutes');
 const protectedRoutes = require('./routes/protectedRoutes');
@@ -72,10 +72,13 @@ app.use('/uploads', express.static('uploads'));
 
 /* ✅ Health check */
 app.get('/health', (req, res) => {
+  const dbStatus = isConnected() ? 'connected' : 'disconnected';
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    database: dbStatus,
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 

@@ -1,5 +1,7 @@
 const User = require('../models/User');
+const mongoose = require('mongoose');
 const { generateToken } = require('../services/authService');
+const { isConnected } = require('../config/db');
 
 exports.register = async (req, res) => {
   try {
@@ -37,14 +39,34 @@ exports.register = async (req, res) => {
       });
     }
 
+    // Check if database is connected
+    if (!isConnected()) {
+      console.error('❌ Database not connected during registration');
+      return res.status(503).json({ 
+        error: 'Service unavailable',
+        message: 'Database connection not available. Please try again later.'
+      });
+    }
+
     // Prevent multiple admin registration - only one admin allowed
     if (role === 'admin') {
-      const adminCount = await User.countDocuments({ role: 'admin' });
-      if (adminCount >= 1) {
-        return res.status(403).json({
-          error: 'Admin registration not allowed',
-          message: 'Only one admin is allowed in the system. Admin registration is disabled.'
-        });
+      try {
+        const adminCount = await User.countDocuments({ role: 'admin' });
+        if (adminCount >= 1) {
+          return res.status(403).json({
+            error: 'Admin registration not allowed',
+            message: 'Only one admin is allowed in the system. Admin registration is disabled.'
+          });
+        }
+      } catch (dbError) {
+        console.error('❌ Error checking admin count:', dbError);
+        if (dbError.name === 'MongoServerSelectionError' || dbError.message.includes('buffering timed out')) {
+          return res.status(503).json({ 
+            error: 'Database unavailable',
+            message: 'Database connection timeout. Please check your MongoDB connection.'
+          });
+        }
+        throw dbError;
       }
     }
 
@@ -109,8 +131,29 @@ exports.login = async (req, res) => {
       });
     }
 
+    // Check if database is connected
+    if (!isConnected()) {
+      console.error('❌ Database not connected during login');
+      return res.status(503).json({ 
+        error: 'Service unavailable',
+        message: 'Database connection not available. Please try again later.'
+      });
+    }
+
     console.log('👤 Finding user...');
-    const user = await User.findOne({ username });
+    let user;
+    try {
+      user = await User.findOne({ username });
+    } catch (dbError) {
+      console.error('❌ Database error during login:', dbError);
+      if (dbError.name === 'MongoServerSelectionError' || dbError.message.includes('buffering timed out')) {
+        return res.status(503).json({ 
+          error: 'Database unavailable',
+          message: 'Database connection timeout. Please check your MongoDB connection.'
+        });
+      }
+      throw dbError;
+    }
     if (!user) {
       console.log('❌ User not found');
       return res.status(401).json({ 
