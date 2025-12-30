@@ -107,6 +107,41 @@ const isConnected = () => {
   return state === 1 || state === 2;
 };
 
+// Helper to ensure connection - attempts reconnect if needed
+const ensureConnection = async () => {
+  const state = mongoose.connection.readyState;
+  
+  // Already connected
+  if (state === 1) {
+    return true;
+  }
+  
+  // Currently connecting, wait for it
+  if (state === 2) {
+    try {
+      await waitForConnection(10000);
+      return true;
+    } catch (err) {
+      console.error('❌ Failed to wait for connection:', err.message);
+      return false;
+    }
+  }
+  
+  // Disconnected - attempt to reconnect
+  if (state === 0) {
+    console.log('🔄 Database disconnected, attempting to reconnect...');
+    try {
+      const connected = await connectDB(1); // Single retry
+      return connected;
+    } catch (err) {
+      console.error('❌ Reconnection attempt failed:', err.message);
+      return false;
+    }
+  }
+  
+  return false;
+};
+
 // Helper to wait for connection if connecting
 const waitForConnection = async (timeout = 5000) => {
   if (mongoose.connection.readyState === 1) {
@@ -135,4 +170,4 @@ const waitForConnection = async (timeout = 5000) => {
   return false; // Not connected and not connecting
 };
 
-module.exports = { connectDB, isConnected, waitForConnection }; 
+module.exports = { connectDB, isConnected, waitForConnection, ensureConnection }; 

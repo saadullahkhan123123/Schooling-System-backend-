@@ -1,7 +1,7 @@
 const User = require('../models/User');
 const mongoose = require('mongoose');
 const { generateToken } = require('../services/authService');
-const { isConnected, waitForConnection } = require('../config/db');
+const { isConnected, waitForConnection, ensureConnection } = require('../config/db');
 
 exports.register = async (req, res) => {
   try {
@@ -39,26 +39,28 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Check if database is connected or connecting
-    if (!isConnected()) {
-      console.error('❌ Database not connected during registration (state:', mongoose.connection.readyState, ')');
+    // Attempt to ensure connection (will reconnect if needed)
+    const connected = await ensureConnection();
+    
+    if (!connected) {
+      const { MONGO_URI } = require('../config/env');
+      const hasMongoURI = !!MONGO_URI;
+      const mongoURIType = MONGO_URI ? (MONGO_URI.includes('mongodb+srv://') ? 'Atlas' : MONGO_URI.includes('localhost') ? 'Local' : 'Custom') : 'Not Set';
+      
+      console.error('❌ Database connection failed during registration (state:', mongoose.connection.readyState, ')');
+      console.error('📝 MONGO_URI configured:', hasMongoURI, 'Type:', mongoURIType);
+      
       return res.status(503).json({ 
-        error: 'Service unavailable',
-        message: 'Database connection not available. Please check your MongoDB connection and try again later.'
+        error: 'Database unavailable',
+        message: hasMongoURI 
+          ? 'Database connection not available. Please check your MongoDB connection string and ensure MongoDB is accessible. For production, use MongoDB Atlas (cloud).'
+          : 'MONGO_URI environment variable is not set. Please configure MongoDB connection in your environment variables.',
+        diagnostic: {
+          uriConfigured: hasMongoURI,
+          uriType: mongoURIType,
+          connectionState: mongoose.connection.readyState
+        }
       });
-    }
-
-    // Wait for connection if currently connecting
-    if (mongoose.connection.readyState === 2) {
-      try {
-        await waitForConnection(5000);
-      } catch (waitError) {
-        console.error('❌ Failed to wait for connection:', waitError.message);
-        return res.status(503).json({ 
-          error: 'Database unavailable',
-          message: 'Database connection timeout. Please try again later.'
-        });
-      }
     }
 
     // Prevent multiple admin registration - only one admin allowed
@@ -144,26 +146,28 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check if database is connected or connecting
-    if (!isConnected()) {
-      console.error('❌ Database not connected during login (state:', mongoose.connection.readyState, ')');
+    // Attempt to ensure connection (will reconnect if needed)
+    const connected = await ensureConnection();
+    
+    if (!connected) {
+      const { MONGO_URI } = require('../config/env');
+      const hasMongoURI = !!MONGO_URI;
+      const mongoURIType = MONGO_URI ? (MONGO_URI.includes('mongodb+srv://') ? 'Atlas' : MONGO_URI.includes('localhost') ? 'Local' : 'Custom') : 'Not Set';
+      
+      console.error('❌ Database connection failed during login (state:', mongoose.connection.readyState, ')');
+      console.error('📝 MONGO_URI configured:', hasMongoURI, 'Type:', mongoURIType);
+      
       return res.status(503).json({ 
-        error: 'Service unavailable',
-        message: 'Database connection not available. Please check your MongoDB connection and try again later.'
+        error: 'Database unavailable',
+        message: hasMongoURI 
+          ? 'Database connection not available. Please check your MongoDB connection string and ensure MongoDB is accessible. For production, use MongoDB Atlas (cloud).'
+          : 'MONGO_URI environment variable is not set. Please configure MongoDB connection in your environment variables.',
+        diagnostic: {
+          uriConfigured: hasMongoURI,
+          uriType: mongoURIType,
+          connectionState: mongoose.connection.readyState
+        }
       });
-    }
-
-    // Wait for connection if currently connecting
-    if (mongoose.connection.readyState === 2) {
-      try {
-        await waitForConnection(5000);
-      } catch (waitError) {
-        console.error('❌ Failed to wait for connection:', waitError.message);
-        return res.status(503).json({ 
-          error: 'Database unavailable',
-          message: 'Database connection timeout. Please try again later.'
-        });
-      }
     }
 
     console.log('👤 Finding user...');

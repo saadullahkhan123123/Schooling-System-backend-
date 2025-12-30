@@ -114,9 +114,68 @@ app.get('/', (req, res) => {
       auth: '/auth',
       attendance: '/api/attendance',
       protected: '/api',
-      health: '/health'
+      health: '/health',
+      dbDiagnostic: '/health/db'
     },
     documentation: 'Add /api-docs for Swagger documentation'
+  });
+});
+
+/* ✅ Database Diagnostic Route */
+app.get('/health/db', async (req, res) => {
+  const mongoose = require('mongoose');
+  const { MONGO_URI } = require('./config/env');
+  const { ensureConnection } = require('./config/db');
+  
+  const dbState = mongoose.connection.readyState;
+  const dbStates = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  
+  const dbStatus = dbStates[dbState] || 'unknown';
+  const isDbConnected = dbState === 1;
+  const hasMongoURI = !!MONGO_URI;
+  const mongoURIType = MONGO_URI ? (MONGO_URI.includes('mongodb+srv://') ? 'Atlas' : MONGO_URI.includes('localhost') ? 'Local' : 'Custom') : 'Not Set';
+  
+  // Attempt to reconnect if disconnected
+  let reconnectAttempted = false;
+  let reconnectSuccess = false;
+  
+  if (!isDbConnected && hasMongoURI) {
+    reconnectAttempted = true;
+    try {
+      reconnectSuccess = await ensureConnection();
+    } catch (err) {
+      console.error('❌ Reconnection attempt failed:', err.message);
+    }
+  }
+  
+  res.status(200).json({
+    status: isDbConnected ? 'OK' : 'ERROR',
+    timestamp: new Date().toISOString(),
+    database: {
+      status: dbStatus,
+      connected: isDbConnected || reconnectSuccess,
+      state: dbState,
+      uriConfigured: hasMongoURI,
+      uriType: mongoURIType,
+      reconnectAttempted,
+      reconnectSuccess
+    },
+    recommendations: !hasMongoURI ? [
+      'Set MONGO_URI environment variable in Vercel',
+      'Use MongoDB Atlas (cloud) for production',
+      'See MONGODB_SETUP.md for detailed instructions'
+    ] : !isDbConnected ? [
+      'Check your MongoDB connection string',
+      'Verify MongoDB server is accessible',
+      'For production, ensure MongoDB Atlas cluster is running',
+      'Check network access settings in MongoDB Atlas'
+    ] : [],
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
