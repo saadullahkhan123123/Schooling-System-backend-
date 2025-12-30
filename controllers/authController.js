@@ -1,7 +1,7 @@
 const User = require('../models/User');
 const mongoose = require('mongoose');
 const { generateToken } = require('../services/authService');
-const { isConnected } = require('../config/db');
+const { isConnected, waitForConnection } = require('../config/db');
 
 exports.register = async (req, res) => {
   try {
@@ -39,13 +39,26 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Check if database is connected
+    // Check if database is connected or connecting
     if (!isConnected()) {
-      console.error('❌ Database not connected during registration');
+      console.error('❌ Database not connected during registration (state:', mongoose.connection.readyState, ')');
       return res.status(503).json({ 
         error: 'Service unavailable',
-        message: 'Database connection not available. Please try again later.'
+        message: 'Database connection not available. Please check your MongoDB connection and try again later.'
       });
+    }
+
+    // Wait for connection if currently connecting
+    if (mongoose.connection.readyState === 2) {
+      try {
+        await waitForConnection(5000);
+      } catch (waitError) {
+        console.error('❌ Failed to wait for connection:', waitError.message);
+        return res.status(503).json({ 
+          error: 'Database unavailable',
+          message: 'Database connection timeout. Please try again later.'
+        });
+      }
     }
 
     // Prevent multiple admin registration - only one admin allowed
@@ -131,13 +144,26 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check if database is connected
+    // Check if database is connected or connecting
     if (!isConnected()) {
-      console.error('❌ Database not connected during login');
+      console.error('❌ Database not connected during login (state:', mongoose.connection.readyState, ')');
       return res.status(503).json({ 
         error: 'Service unavailable',
-        message: 'Database connection not available. Please try again later.'
+        message: 'Database connection not available. Please check your MongoDB connection and try again later.'
       });
+    }
+
+    // Wait for connection if currently connecting
+    if (mongoose.connection.readyState === 2) {
+      try {
+        await waitForConnection(5000);
+      } catch (waitError) {
+        console.error('❌ Failed to wait for connection:', waitError.message);
+        return res.status(503).json({ 
+          error: 'Database unavailable',
+          message: 'Database connection timeout. Please try again later.'
+        });
+      }
     }
 
     console.log('👤 Finding user...');

@@ -72,12 +72,35 @@ app.use('/uploads', express.static('uploads'));
 
 /* ✅ Health check */
 app.get('/health', (req, res) => {
-  const dbStatus = isConnected() ? 'connected' : 'disconnected';
+  const mongoose = require('mongoose');
+  const { MONGO_URI } = require('./config/env');
+  
+  const dbState = mongoose.connection.readyState;
+  const dbStates = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  
+  const dbStatus = dbStates[dbState] || 'unknown';
+  const isDbConnected = dbState === 1;
+  
+  // Check if MONGO_URI is set (without exposing it)
+  const hasMongoURI = !!MONGO_URI;
+  const mongoURIType = MONGO_URI ? (MONGO_URI.includes('mongodb+srv://') ? 'Atlas' : MONGO_URI.includes('localhost') ? 'Local' : 'Custom') : 'Not Set';
+  
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    database: dbStatus,
+    database: {
+      status: dbStatus,
+      connected: isDbConnected,
+      state: dbState,
+      uriConfigured: hasMongoURI,
+      uriType: mongoURIType
+    },
     environment: process.env.NODE_ENV || 'development'
   });
 });
