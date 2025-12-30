@@ -7,6 +7,7 @@ const protectedRoutes = require('./routes/protectedRoutes');
 const passwordRoutes = require('./routes/passwordRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const homeworkRoutes = require('./routes/homeworkRoutes');
+const feeRoutes = require('./routes/feeRoutes');
 require('dotenv').config({ silent: true });
 
 const app = express();
@@ -54,6 +55,9 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+/* ✅ Serve uploaded files */
+app.use('/uploads', express.static('uploads'));
+
 /* ✅ Health check */
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -83,6 +87,7 @@ app.use('/auth', authRoutes);
 app.use('/auth', passwordRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/homework', homeworkRoutes);
+app.use('/api/fees', feeRoutes);
 app.use('/api', protectedRoutes);
 
 /* ✅ 404 Handler */

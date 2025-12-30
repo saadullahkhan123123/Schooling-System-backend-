@@ -50,6 +50,9 @@ exports.createHomework = async (req, res) => {
 // Get all homeworks with filters
 exports.getAllHomeworks = async (req, res) => {
   try {
+    const userRole = req.user.role;
+    const userId = req.user.id || req.user._id;
+    
     const { 
       class: className, 
       subject, 
@@ -63,7 +66,29 @@ exports.getAllHomeworks = async (req, res) => {
     // Build filter object
     const filter = { isActive: true };
     
-    if (className) filter.class = className;
+    // If student, only show homework for their class
+    if (userRole === 'student') {
+      const User = require('../models/User');
+      const user = await User.findById(userId);
+      if (user && user.class) {
+        filter.class = user.class;
+      } else {
+        // If student has no class, return empty
+        return res.json({
+          homeworks: [],
+          pagination: {
+            currentPage: 1,
+            totalPages: 0,
+            totalItems: 0,
+            itemsPerPage: parseInt(limit)
+          }
+        });
+      }
+    } else {
+      // Admin/Teacher can filter by class
+      if (className) filter.class = className;
+    }
+    
     if (subject) filter.subject = subject;
     if (status) filter.status = status;
 

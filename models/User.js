@@ -6,7 +6,10 @@ const userSchema = new Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   email: { type: String, required: true },
-  role: { type: String, enum: ["student", "admin"], default: "student" },
+  role: { type: String, enum: ["student", "admin", "teacher"], default: "student" },
+  
+  // Profile image
+  profileImage: { type: String },
   
   // Password reset fields
   resetPasswordToken: String,
@@ -70,6 +73,7 @@ userSchema.methods.getProfile = function() {
     username: this.username,
     email: this.email,
     role: this.role,
+    profileImage: this.profileImage,
     studentId: this.studentId,
     class: this.class,
     section: this.section,

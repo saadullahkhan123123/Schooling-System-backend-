@@ -4,29 +4,74 @@ const { generateToken } = require('../services/authService');
 exports.register = async (req, res) => {
   try {
     console.log('📝 Register request received:', req.body);
-    const { username, password, email, role } = req.body;
+    const { username, password, email, role, class: className } = req.body;
     
     // Input validation
     if (!username || !password || !email) {
       return res.status(400).json({ 
-        error: 'Username, password, and email are required' 
+        error: 'Username, password, and email are required',
+        message: 'Username, password, and email are required'
       });
     }
 
     if (password.length < 6) {
       return res.status(400).json({ 
-        error: 'Password must be at least 6 characters long' 
+        error: 'Password must be at least 6 characters long',
+        message: 'Password must be at least 6 characters long'
       });
     }
 
     if (!email.includes('@')) {
       return res.status(400).json({ 
-        error: 'Please provide a valid email address' 
+        error: 'Please provide a valid email address',
+        message: 'Please provide a valid email address'
       });
     }
 
+    // Validate role
+    const validRoles = ['admin', 'teacher', 'student'];
+    if (role && !validRoles.includes(role)) {
+      return res.status(400).json({ 
+        error: 'Invalid role',
+        message: `Role must be one of: ${validRoles.join(', ')}`
+      });
+    }
+
+    // Prevent multiple admin registration - only one admin allowed
+    if (role === 'admin') {
+      const adminCount = await User.countDocuments({ role: 'admin' });
+      if (adminCount >= 1) {
+        return res.status(403).json({
+          error: 'Admin registration not allowed',
+          message: 'Only one admin is allowed in the system. Admin registration is disabled.'
+        });
+      }
+    }
+
+    // Validate class field for students
+    if (role === 'student') {
+      if (!className) {
+        return res.status(400).json({
+          error: 'Class is required',
+          message: 'Class is required for student registration'
+        });
+      }
+    }
+
     console.log('👤 Creating user...');
-    const user = new User({ username, password, email, role });
+    const userData = { 
+      username, 
+      password, 
+      email, 
+      role: role || 'student' 
+    };
+    
+    // Add class for students
+    if (role === 'student' && className) {
+      userData.class = className;
+    }
+    
+    const user = new User(userData);
     console.log('💾 Saving user to database...');
     await user.save();
     console.log('✅ User saved successfully');
@@ -36,48 +81,68 @@ exports.register = async (req, res) => {
       user: user.getProfile()
     });
   } catch (err) {
+    console.error('❌ Registration error:', err);
     if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern)[0];
       return res.status(400).json({ 
-        error: 'Username or email already exists' 
+        error: `${field} already exists`,
+        message: `This ${field} is already registered. Please use a different ${field}.`
       });
     }
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ 
+      error: err.message,
+      message: err.message
+    });
   }
 };
 
 exports.login = async (req, res) => {
   try {
+    console.log('🔐 Login request received:', req.body);
     const { username, password } = req.body;
     
     // Input validation
     if (!username || !password) {
       return res.status(400).json({ 
-        error: 'Username and password are required' 
+        error: 'Username and password are required',
+        message: 'Username and password are required'
       });
     }
 
+    console.log('👤 Finding user...');
     const user = await User.findOne({ username });
     if (!user) {
+      console.log('❌ User not found');
       return res.status(401).json({ 
-        error: "Invalid credentials" 
+        error: "Invalid credentials",
+        message: "Invalid username or password"
       });
     }
 
+    console.log('🔑 Comparing password...');
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      console.log('❌ Password mismatch');
       return res.status(401).json({ 
-        error: "Invalid credentials" 
+        error: "Invalid credentials",
+        message: "Invalid username or password"
       });
     }
 
+    console.log('✅ Password matched, generating token...');
     const token = generateToken(user);
+    console.log('✅ Login successful');
+    
     res.json({ 
       message: "Login successful",
       token,
       user: user.getProfile()
     });
   } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('❌ Login error:', err);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: 'An error occurred during login. Please try again.'
+    });
   }
 };
