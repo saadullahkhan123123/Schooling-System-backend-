@@ -143,6 +143,14 @@ app.get('/health/db', async (req, res) => {
   const hasMongoURI = !!MONGO_URI;
   const mongoURIType = MONGO_URI ? (MONGO_URI.includes('mongodb+srv://') ? 'Atlas' : MONGO_URI.includes('localhost') ? 'Local' : 'Custom') : 'Not Set';
   
+  // Get URI prefix for debugging (first 30 chars, sanitized)
+  let uriPrefix = 'Not set';
+  if (MONGO_URI) {
+    const sanitized = MONGO_URI.replace(/:[^:@]+@/, ':***@');
+    uriPrefix = sanitized.substring(0, Math.min(50, sanitized.length));
+    if (sanitized.length > 50) uriPrefix += '...';
+  }
+  
   // Attempt to reconnect if disconnected
   let reconnectAttempted = false;
   let reconnectSuccess = false;
@@ -165,6 +173,7 @@ app.get('/health/db', async (req, res) => {
       state: dbState,
       uriConfigured: hasMongoURI,
       uriType: mongoURIType,
+      uriPrefix: uriPrefix, // First 50 chars (sanitized) for debugging
       reconnectAttempted,
       reconnectSuccess
     },
