@@ -8,6 +8,9 @@ const passwordRoutes = require('./routes/passwordRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const homeworkRoutes = require('./routes/homeworkRoutes');
 const feeRoutes = require('./routes/feeRoutes');
+const updateRoutes = require('./routes/updateRoutes');
+const resultRoutes = require('./routes/resultRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 require('dotenv').config({ silent: true });
 
 const app = express();
@@ -185,6 +188,9 @@ app.use('/auth', passwordRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/homework', homeworkRoutes);
 app.use('/api/fees', feeRoutes);
+app.use('/api/updates', updateRoutes);
+app.use('/api/results', resultRoutes);
+app.use('/api/reports', reportRoutes);
 app.use('/api', protectedRoutes);
 
 /* ✅ 404 Handler */

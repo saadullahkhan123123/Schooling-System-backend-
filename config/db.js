@@ -8,13 +8,40 @@ const logMongoURI = () => {
     console.warn('⚠️  MONGO_URI is not set!');
     return;
   }
-  // Hide credentials but show connection type
-  const uriParts = MONGO_URI.split('@');
-  if (uriParts.length > 1) {
-    const hostPart = uriParts[1];
-    console.log('📝 MongoDB URI:', `mongodb://***@${hostPart}`);
-  } else {
-    console.log('📝 MongoDB URI:', MONGO_URI.replace(/\/\/.*@/, '//***@'));
+  
+  // Check URI format
+  const isMongoDBAtlas = MONGO_URI.includes('mongodb+srv://');
+  const uriType = isMongoDBAtlas ? 'MongoDB Atlas (Cloud)' : 'MongoDB (Local)';
+  
+  // Hide credentials but show connection info
+  try {
+    // For mongodb+srv:// format
+    if (isMongoDBAtlas) {
+      const match = MONGO_URI.match(/mongodb\+srv:\/\/[^:]+:[^@]+@([^/]+)\/?(.*)?/);
+      if (match) {
+        const host = match[1];
+        const database = match[2] || 'default';
+        console.log(`📝 ${uriType}`);
+        console.log(`📝 Host: ${host}`);
+        console.log(`📝 Database: ${database}`);
+      } else {
+        console.log('⚠️  URI format appears incorrect');
+        console.log('📝 URI length:', MONGO_URI.length, 'characters');
+        console.log('📝 URI starts with:', MONGO_URI.substring(0, 20) + '...');
+      }
+    } else {
+      // For mongodb:// format
+      const match = MONGO_URI.match(/mongodb:\/\/([^:]+):([^@]+)@([^/]+)\/?(.*)?/);
+      if (match) {
+        const host = match[3];
+        const database = match[4] || 'default';
+        console.log(`📝 ${uriType}`);
+        console.log(`📝 Host: ${host}`);
+        console.log(`📝 Database: ${database}`);
+      }
+    }
+  } catch (err) {
+    console.log('⚠️  Error parsing URI format');
   }
 };
 
@@ -32,8 +59,7 @@ const connectDB = async (retries = 3) => {
         connectTimeoutMS: 10000, // 10 seconds to establish connection
         maxPoolSize: 10, // Maintain up to 10 socket connections
         minPoolSize: 2, // Maintain at least 2 socket connections
-        bufferCommands: false, // Disable mongoose buffering
-        bufferMaxEntries: 0, // Disable mongoose buffering
+        bufferCommands: false // Disable mongoose buffering
       };
 
       // If already connected, return true
